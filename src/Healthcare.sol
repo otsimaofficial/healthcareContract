@@ -64,54 +64,33 @@ contract Healthcare {
     event PatientRegistered(address indexed patientAddress, string name);
     event DoctorRegistered(address indexed doctorAddress);
     event LabRegistered(address indexed labAddress);
-    event AppointmentScheduled(
-        address indexed patientAddress,
-        address indexed doctorAddress,
-        uint256 appointmentId
-    );
-    event AppointmentConfirmed(
-        uint256 indexed appointmentId,
-        address indexed doctorAddress
-    );
-    event MedicalRecordAdded(
-        address indexed patientAddress,
-        address indexed doctorAddress,
-        uint256 recordId
-    );
+    event AppointmentScheduled(address indexed patientAddress, address indexed doctorAddress, uint256 appointmentId);
+    event AppointmentConfirmed(uint256 indexed appointmentId, address indexed doctorAddress);
+    event MedicalRecordAdded(address indexed patientAddress, address indexed doctorAddress, uint256 recordId);
     event AccessGranted(address indexed recordOwner, address indexed accessor);
 
     // --- Modifiers ---
 
     modifier onlyRole(Role requiredRole) {
-        require(
-            userRoles[msg.sender] == requiredRole,
-            "Access denied: incorrect role."
-        );
+        require(userRoles[msg.sender] == requiredRole, "Access denied: incorrect role.");
         _;
     }
 
     modifier onlyPatient(address patientAddress) {
         require(
-            userRoles[msg.sender] == Role.Patient &&
-                msg.sender == patientAddress,
-            "Access denied: not the patient."
+            userRoles[msg.sender] == Role.Patient && msg.sender == patientAddress, "Access denied: not the patient."
         );
         _;
     }
 
     modifier onlyDoctor(address doctorAddress) {
-        require(
-            userRoles[msg.sender] == Role.Doctor && msg.sender == doctorAddress,
-            "Access denied: not the doctor."
-        );
+        require(userRoles[msg.sender] == Role.Doctor && msg.sender == doctorAddress, "Access denied: not the doctor.");
         _;
     }
 
     modifier onlyDoctorOrPatient(address recordOwner) {
         require(
-            userRoles[msg.sender] == Role.Doctor ||
-                (userRoles[msg.sender] == Role.Patient &&
-                    msg.sender == recordOwner),
+            userRoles[msg.sender] == Role.Doctor || (userRoles[msg.sender] == Role.Patient && msg.sender == recordOwner),
             "Access denied: not doctor or patient."
         );
         _;
@@ -130,13 +109,8 @@ contract Healthcare {
      * @dev Admin function to register a doctor.
      * @param _doctorAddress The address of the doctor to register.
      */
-    function registerDoctor(
-        address _doctorAddress
-    ) public onlyRole(Role.Admin) {
-        require(
-            !registeredDoctors[_doctorAddress],
-            "Doctor already registered."
-        );
+    function registerDoctor(address _doctorAddress) public onlyRole(Role.Admin) {
+        require(!registeredDoctors[_doctorAddress], "Doctor already registered.");
         userRoles[_doctorAddress] = Role.Doctor;
         registeredDoctors[_doctorAddress] = true;
         emit DoctorRegistered(_doctorAddress);
@@ -161,22 +135,9 @@ contract Healthcare {
      * @param _age The patient's age.
      * @param _contactInfo The patient's contact information.
      */
-    function registerPatient(
-        string memory _name,
-        uint256 _age,
-        string memory _contactInfo
-    ) public {
-        require(
-            userRoles[msg.sender] == Role.None,
-            "Address already has a role."
-        );
-        patients[msg.sender] = Patient(
-            msg.sender,
-            _name,
-            _age,
-            _contactInfo,
-            true
-        );
+    function registerPatient(string memory _name, uint256 _age, string memory _contactInfo) public {
+        require(userRoles[msg.sender] == Role.None, "Address already has a role.");
+        patients[msg.sender] = Patient(msg.sender, _name, _age, _contactInfo, true);
         userRoles[msg.sender] = Role.Patient;
         emit PatientRegistered(msg.sender, _name);
     }
@@ -186,19 +147,11 @@ contract Healthcare {
      * @param _doctorAddress The address of the doctor for the appointment.
      * @param _appointmentTime The timestamp for the appointment.
      */
-    function scheduleAppointment(
-        address _doctorAddress,
-        uint256 _appointmentTime
-    ) public onlyRole(Role.Patient) {
+    function scheduleAppointment(address _doctorAddress, uint256 _appointmentTime) public onlyRole(Role.Patient) {
         require(registeredDoctors[_doctorAddress], "Doctor is not registered.");
 
         uint256 appointmentId = nextAppointmentId++;
-        appointments[appointmentId] = Appointment(
-            msg.sender,
-            _doctorAddress,
-            _appointmentTime,
-            false
-        );
+        appointments[appointmentId] = Appointment(msg.sender, _doctorAddress, _appointmentTime, false);
         patientAppointments[msg.sender].push(appointmentId);
 
         emit AppointmentScheduled(msg.sender, _doctorAddress, appointmentId);
@@ -210,14 +163,9 @@ contract Healthcare {
      * @dev Allows a doctor to confirm an appointment.
      * @param _appointmentId The ID of the appointment to confirm.
      */
-    function confirmAppointment(
-        uint256 _appointmentId
-    ) public onlyRole(Role.Doctor) {
+    function confirmAppointment(uint256 _appointmentId) public onlyRole(Role.Doctor) {
         Appointment storage appointment = appointments[_appointmentId];
-        require(
-            appointment.doctorAddress == msg.sender,
-            "You are not the assigned doctor for this appointment."
-        );
+        require(appointment.doctorAddress == msg.sender, "You are not the assigned doctor for this appointment.");
         require(!appointment.isConfirmed, "Appointment already confirmed.");
 
         appointment.isConfirmed = true;
@@ -237,20 +185,11 @@ contract Healthcare {
         string memory _prescription,
         string memory _labResultsIPFSHash
     ) public onlyRole(Role.Doctor) {
-        require(
-            patients[_patientAddress].isRegistered,
-            "Patient is not registered."
-        );
+        require(patients[_patientAddress].isRegistered, "Patient is not registered.");
 
         uint256 recordId = nextRecordId++;
-        medicalRecords[recordId] = MedicalRecord(
-            _patientAddress,
-            msg.sender,
-            _diagnosis,
-            _prescription,
-            _labResultsIPFSHash,
-            block.timestamp
-        );
+        medicalRecords[recordId] =
+            MedicalRecord(_patientAddress, msg.sender, _diagnosis, _prescription, _labResultsIPFSHash, block.timestamp);
         patientRecords[_patientAddress].push(recordId);
         doctorRecords[msg.sender].push(recordId);
 
@@ -264,14 +203,8 @@ contract Healthcare {
      * @param _recordId The ID of the medical record to update.
      * @param _labResultsIPFSHash The IPFS hash for the lab results.
      */
-    function addLabResults(
-        uint256 _recordId,
-        string memory _labResultsIPFSHash
-    ) public onlyRole(Role.Lab) {
-        require(
-            medicalRecords[_recordId].patientAddress != address(0),
-            "Record does not exist."
-        );
+    function addLabResults(uint256 _recordId, string memory _labResultsIPFSHash) public onlyRole(Role.Lab) {
+        require(medicalRecords[_recordId].patientAddress != address(0), "Record does not exist.");
 
         medicalRecords[_recordId].labResultsIPFSHash = _labResultsIPFSHash;
 
